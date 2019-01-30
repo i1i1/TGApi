@@ -1,15 +1,17 @@
 package main
 
 import (
-  "fmt"
-  "net/url"
-  "net/http"
-  "encoding/json"
+	"fmt"
+	"net/url"
+	"net/http"
+	"encoding/json"
+	"strconv"
 )
 
 
 type Bot struct {
 	tok		string
+	parm	string
 }
 
 type Respond struct {
@@ -42,25 +44,71 @@ type Update struct {
 	Mes		Message			`json:"message"`
 }
 
+type Error struct {
+	s		string
+}
+
+
 const apifmt = "https://api.telegram.org/bot%s/%s"
 
 
-func (b Bot) Getcmd(cmd string, par url.Values, ret interface {}) (err error, ok bool) {
+func (e Error) Error() string {
+	return fmt.Sprintf("Telegram error: %s\n", e.s)
+}
+
+func (b *Bot) request(cmd string, par url.Values, ret interface {}) error {
 	var resp Respond
 
 	url := fmt.Sprintf(apifmt, b.tok, cmd)
 	res, err := http.PostForm(url, par)
 	if err != nil {
-		return
+		return err
 	}
-
 	defer res.Body.Close()
 
 	err = json.NewDecoder(res.Body).Decode(&resp)
-	ret = json.Unmarshal(resp.Res, ret)
-	ok = resp.Ok
+	if err != nil {
+		return err
+	}
+	if !resp.Ok {
+		return Error{resp.Desk}
+	}
 
-	return
+	json.Unmarshal(resp.Res, ret)
+	return nil
+}
+
+func (b *Bot) GetUpdates(upds *[]Update, offset, limit, timeout int, allowed_updates []string) error {
+	pars := url.Values{}
+	if offset > 0 {
+		pars.Add("offset", strconv.Itoa(offset))
+	}
+	if limit > 0 {
+		pars.Add("limit", strconv.Itoa(limit))
+	}
+	if timeout > 0 {
+		pars.Add("timeout", strconv.Itoa(timeout))
+	}
+	if allowed_updates != nil {
+		/*
+		 * TODO: !
+		 */
+//		pars.Add("allowed_updates", value string)
+	}
+	return b.request("getUpdates", pars, upds)
+}
+
+/*
+ * TODO: Some more arguments to add
+ */
+func (b *Bot) SendMessage(chat_id int, text string) error {
+	pars := url.Values{}
+
+	pars.Add("chat_id", strconv.Itoa(chat_id))
+	pars.Add("parse_mode", b.parm)
+	pars.Add("text", text)
+
+	return b.request("sendMessage", pars, nil)
 }
 
 

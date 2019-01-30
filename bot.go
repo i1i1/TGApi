@@ -1,25 +1,19 @@
 package main
 
 import (
-  "log"
-  "strconv"
-  "fmt"
-  "net/url"
+	"log"
+	"fmt"
 )
 
 
 func main() {
 	var upds []Update
 
-	b := Bot{"772888415:AAHrwngGee8dskfmAMSlckm-zGeJyxR4LpY"}
+	b := Bot{"772888415:AAHrwngGee8dskfmAMSlckm-zGeJyxR4LpY", "Markdown"}
 	last_upd := 0
 	
 	for {
-		v := url.Values{}
-
-		v.Add("offset", strconv.Itoa(last_upd))
-
-		if err, ok := b.Getcmd("getUpdates", v, &upds); err != nil || !ok {
+		if err := b.GetUpdates(&upds, last_upd, 0, 0, nil); err != nil {
 			log.Fatal(err)
 		}
 
@@ -31,6 +25,14 @@ func main() {
 			fmt.Printf("%s> %s\n",
 				upds[i].Mes.From.Firstn,
 				upds[i].Mes.Text)
+
+			if upds[i].Mes.Text == "Hello" {
+				id := int(upds[i].Mes.Chat.Id)
+				fmt.Printf("%s> %s\n", "Bot", "Hi!")
+				if err := b.SendMessage(id, "Hi!"); err != nil {
+					log.Fatal(err)
+				}
+			}
 		}
 	}
 }
