@@ -39,7 +39,7 @@ func (b * Bot) updates(last_upd int) []Update {
 
 func (b *Bot) send(id int, s string) {
 	if s == "" {
-		if err := b.SendMessage(id, ""); err != nil {
+		if err := b.SendMessage(id, "-/-/-/-"); err != nil {
 			log.Fatal(err)
 		}
 		return
@@ -57,7 +57,7 @@ func (b *Bot) send(id int, s string) {
 }
 
 func main() {
-	b := Bot{"772888415:AAHrwngGee8dskfmAMSlckm-zGeJyxR4LpY", "Markdown"}
+	b := Bot{"Add token here", "Markdown"}
 	last_upd := 0
 	
 	for {
