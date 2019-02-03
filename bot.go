@@ -6,9 +6,15 @@ import (
 )
 
 const (
-	mutetm=		60
-	stickers=	5
+	mutetm=		5*60
+	stickers=	3
 )
+
+
+type stickent struct {
+	n int
+	t time.Time
+}
 
 
 func (b * Bot) updates(last_upd int) []Update {
@@ -42,8 +48,7 @@ func (b *Bot) send(id, reply int, s string) {
 func main() {
 	b := Bot{"oops here should be your bot token", "Markdown"}
 	last_upd := 0
-	stickdb := make(map[int]int)
-	mutedb := make(map[int]time.Time)
+	stickdb := make(map[int]stickent)
 	
 	for {
 		upds := b.updates(last_upd)
@@ -61,7 +66,7 @@ func main() {
 			firstn := upds[i].Mes.From.Firstn
 
 			/* If muted */
-			if _, ok := mutedb[sender]; ok {
+			if v, ok := stickdb[sender]; ok && v.n == 0 {
 				b.DeleteMessage(chat, mes)
 				continue
 			}
@@ -71,25 +76,36 @@ func main() {
 			}
 
 			if _, ok := stickdb[sender]; !ok {
-				stickdb[sender] = stickers
+				var a stickent
+				a.n = stickers
+				stickdb[sender] = a
 			}
-			if stickdb[sender] > 0 {
-				stickdb[sender]--
+			if stickdb[sender].n > 0 {
+				var a stickent
+
+				a.n = stickdb[sender].n - 1
+				a.t = time.Now().Add(time.Second*mutetm)
+				stickdb[sender] = a
+
 				s := fmt.Sprintf("*%s warning!* only %d stickers more allowed\n",
-						firstn, stickdb[sender])
+						firstn, stickdb[sender].n)
 				b.send(chat, mes, s)
 			} else {
-				mutedb[sender] = time.Now().Add(time.Second*mutetm)
+				var a stickent
+
+				a.n = 0
+				a.t = time.Now().Add(time.Second*mutetm)
+				stickdb[sender] = a
+
 				s := fmt.Sprintf("*%s* is now *muted* for *%d* seconds!\n",
 					firstn, mutetm)
 				b.send(chat, mes, s)
 			}
 		}
 
-		for k, v := range mutedb {
-			if v.Before(time.Now()) {
-				stickdb[k] = stickers
-				delete(mutedb, k)
+		for k, v := range stickdb {
+			if v.t.Before(time.Now()) {
+				delete(stickdb, k)
 			}
 		}
 	}
