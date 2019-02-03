@@ -80,7 +80,7 @@ func main() {
 				a.n = stickers
 				stickdb[sender] = a
 			}
-			if stickdb[sender].n > 0 {
+			if stickdb[sender].n > 1 {
 				var a stickent
 
 				a.n = stickdb[sender].n - 1
