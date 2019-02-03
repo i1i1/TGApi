@@ -1,64 +1,49 @@
 package main
 
 import (
-	"log"
-	"os/exec"
 	"fmt"
-	"strings"
+	"time"
 )
 
+const (
+	mutetm=		60
+	stickers=	5
+)
 
-func execute(cmd, in string) string {
-	args := strings.Fields(cmd)
-	c := exec.Command(args[0], args[1:]...)
-
-	stdin, err := c.StdinPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Fprintf(stdin, "%s", in)
-	stdin.Close()
-
-	out, err := c.CombinedOutput()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return string(out)
-}
 
 func (b * Bot) updates(last_upd int) []Update {
 	var upds []Update
 
 	if err := b.GetUpdates(&upds, last_upd, 0, 0, nil); err != nil {
-		log.Fatal(err)
+		fmt.Print(err)
 	}
 	return upds
 }
 
-func (b *Bot) send(id int, s string) {
+func (b *Bot) send(id, reply int, s string) {
 	if s == "" {
-		if err := b.SendMessage(id, "-/-/-/-"); err != nil {
-			log.Fatal(err)
+		if err := b.SendMessage(id, reply, "-/-/-/-"); err != nil {
+			fmt.Print(err)
 		}
 		return
 	}
 	for len(s) > 4096 {
-		if err := b.SendMessage(id, string(s[:4095])); err != nil {
-			log.Fatal(err)
+		if err := b.SendMessage(id, reply, string(s[:4095])); err != nil {
+			fmt.Print(err)
 		}
 		s = s[4096:]
 	}
 
-	if err := b.SendMessage(id, string(s)); err != nil {
-		log.Fatal(err)
+	if err := b.SendMessage(id, reply, string(s)); err != nil {
+		fmt.Print(err)
 	}
 }
 
 func main() {
-	b := Bot{"Add token here", "Markdown"}
+	b := Bot{"oops here should be your bot token", "Markdown"}
 	last_upd := 0
+	stickdb := make(map[int]int)
+	mutedb := make(map[int]time.Time)
 	
 	for {
 		upds := b.updates(last_upd)
@@ -67,15 +52,45 @@ func main() {
 			if int(upds[i].Id) <= last_upd {
 				continue
 			}
-			last_upd = int(upds[i].Id)
-			id := int(upds[i].Mes.Chat.Id)
-			mes := upds[i].Mes.Text
 
-			if mes[0] == '/' {
+			last_upd = int(upds[i].Id)
+			chat := int(upds[i].Mes.Chat.Id)
+			stick := upds[i].Mes.Sticker
+			sender := int(upds[i].Mes.From.Id)
+			mes := int(upds[i].Mes.Id)
+			firstn := upds[i].Mes.From.Firstn
+
+			/* If muted */
+			if _, ok := mutedb[sender]; ok {
+				b.DeleteMessage(chat, mes)
+				continue
+			}
+			/* If not a sticker */
+			if stick.File_id == "" {
 				continue
 			}
 
-			b.send(id, execute("bc -l", mes+"\n"))
+			if _, ok := stickdb[sender]; !ok {
+				stickdb[sender] = stickers
+			}
+			if stickdb[sender] > 0 {
+				stickdb[sender]--
+				s := fmt.Sprintf("*%s warning!* only %d stickers more allowed\n",
+						firstn, stickdb[sender])
+				b.send(chat, mes, s)
+			} else {
+				mutedb[sender] = time.Now().Add(time.Second*mutetm)
+				s := fmt.Sprintf("*%s* is now *muted* for *%d* seconds!\n",
+					firstn, mutetm)
+				b.send(chat, mes, s)
+			}
+		}
+
+		for k, v := range mutedb {
+			if v.Before(time.Now()) {
+				stickdb[k] = stickers
+				delete(mutedb, k)
+			}
 		}
 	}
 }
