@@ -44,6 +44,7 @@ type Message struct {
 	Chat	Chat			`json:"chat"`
 	Text	string			`json:"text"`
 	Sticker	Sticker			`json:"sticker"`
+	Newmem	[]User			`json:"new_chat_members"`
 }
 
 type Update struct {
@@ -85,7 +86,7 @@ func (b *Bot) request(cmd string, par url.Values, ret interface {}) error {
 	return nil
 }
 
-func (b *Bot) GetUpdates(upds *[]Update, offset, limit, timeout int, allowed_updates []string) error {
+func (b *Bot) GetUpdates(offset, limit, timeout int) (upds []Update, e error) {
 	pars := url.Values{}
 	if offset > 0 {
 		pars.Add("offset", strconv.Itoa(offset))
@@ -96,13 +97,8 @@ func (b *Bot) GetUpdates(upds *[]Update, offset, limit, timeout int, allowed_upd
 	if timeout > 0 {
 		pars.Add("timeout", strconv.Itoa(timeout))
 	}
-	if allowed_updates != nil {
-		/*
-		 * TODO: !
-		 */
-//		pars.Add("allowed_updates", value string)
-	}
-	return b.request("getUpdates", pars, upds)
+	e = b.request("getUpdates", pars, &upds)
+	return upds, e
 }
 
 /*
@@ -148,5 +144,10 @@ func (b *Bot) EditMessageText(chat, mes int, text string) error {
 	pars.Add("text", text)
 
 	return b.request("editMessageText", pars, nil)
+}
+
+func (b *Bot) GetMe() (u User, e error) {
+	e = b.request("getMe", url.Values{}, &u)
+	return
 }
 

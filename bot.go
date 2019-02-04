@@ -19,10 +19,9 @@ type stickent struct {
 
 
 func (b * Bot) updates(last_upd int) []Update {
-	var upds []Update
-
-	if err := b.GetUpdates(&upds, last_upd, 0, 0, nil); err != nil {
-		fmt.Print(err)
+	upds, e := b.GetUpdates(last_upd, 0, 0)
+	if e != nil {
+		fmt.Print(e)
 	}
 	return upds
 }
@@ -41,7 +40,7 @@ func (b *Bot) send(id, reply int, s string) {
 		s = s[4096:]
 	}
 
-	if err := b.SendMessage(id, reply, string(s)); err != nil {
+	if err := b.SendMessage(id, reply, s); err != nil {
 		fmt.Print(err)
 	}
 }
@@ -57,6 +56,30 @@ func sendedbefore(m Message) bool {
 	 */
 	tm = tm.Add(time.Second*timeout)
 	return tm.Before(time.Now())
+}
+
+func (b *Bot) botjoined(m Message) bool {
+	me, e := b.GetMe()
+	if e != nil {
+		fmt.Print(e)
+		return false
+	}
+
+	for _, i := range m.Newmem {
+		if i.Is_bot && int(me.Id) == int(i.Id) {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *Bot) greet(c int) {
+	s := "Hello everyone! *I want to play a game...*\n"
+	s = s + "Now you have only *%d* stickers. "
+	s = s + "If you spam you will be muted for *%d* seconds.\n"
+	s = s + "*Good luck.*"
+	s = fmt.Sprintf(s, stickers, mutetm)
+	b.send(c, 0, s)
 }
 
 func main() {
@@ -84,6 +107,10 @@ func main() {
 			mes := int(M.Id)
 			firstn := M.From.Firstn
 
+			if b.botjoined(M) {
+				b.greet(chat)
+				continue
+			}
 			if muted(sender) {
 				b.DeleteMessage(chat, mes)
 				continue
