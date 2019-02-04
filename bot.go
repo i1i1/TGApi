@@ -7,6 +7,7 @@ import (
 
 const (
 	mutetm=		5*60
+	timeout=	60
 	stickers=	3
 )
 
@@ -45,11 +46,29 @@ func (b *Bot) send(id, reply int, s string) {
 	}
 }
 
+func isstick(m Message) bool {
+	return m.Sticker.File_id != ""
+}
+
+func sendedbefore(m Message) bool {
+	tm := time.Unix(int64(m.Date), 0)
+	/*
+	 * Lets assume that all messages recived before timeout should be ignored.
+	 */
+	tm = tm.Add(time.Second*timeout)
+	return tm.Before(time.Now())
+}
+
 func main() {
 	b := Bot{"oops here should be your bot token", "Markdown"}
 	last_upd := 0
 	stickdb := make(map[int]stickent)
 	
+	muted := func (sender int) bool {
+		v, ok := stickdb[sender]
+		return ok && v.n == 0
+	}
+
 	for {
 		upds := b.updates(last_upd)
 
@@ -58,20 +77,21 @@ func main() {
 				continue
 			}
 
+			M := upds[i].Mes
 			last_upd = int(upds[i].Id)
-			chat := int(upds[i].Mes.Chat.Id)
-			stick := upds[i].Mes.Sticker
-			sender := int(upds[i].Mes.From.Id)
-			mes := int(upds[i].Mes.Id)
-			firstn := upds[i].Mes.From.Firstn
+			chat := int(M.Chat.Id)
+			sender := int(M.From.Id)
+			mes := int(M.Id)
+			firstn := M.From.Firstn
 
-			/* If muted */
-			if v, ok := stickdb[sender]; ok && v.n == 0 {
+			if muted(sender) {
 				b.DeleteMessage(chat, mes)
 				continue
 			}
-			/* If not a sticker */
-			if stick.File_id == "" {
+			if !isstick(M) {
+				continue
+			}
+			if sendedbefore(M) {
 				continue
 			}
 
